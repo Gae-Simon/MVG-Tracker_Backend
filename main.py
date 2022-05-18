@@ -28,7 +28,7 @@ def addToDatabase(check, product, label, destination, timestamp, cancelled, sev,
     if check == "":
         cursor.execute(
             "INSERT INTO T_DEPARTURE (PRODUCT, LABEL, DESTINATION, TIMESTAMP, CANCELLED, SEV, DELAY) "
-            "VALUES (%s, %s, %s, %s ,%s, %s, %s)", (product, label, destination, timestamp, cancelled, sev, delay)
+            "VALUES (%s, %s, %s, %s,%s, %s, %s)", (product, label, destination, timestamp, cancelled, sev, delay)
         )
     else:
         cursor.execute("UPDATE T_DEPARTURE SET CANCELLED = %s AND SEV = %s AND DELAY = %s "
@@ -37,7 +37,11 @@ def addToDatabase(check, product, label, destination, timestamp, cancelled, sev,
 
 
 def getInformation(qry) -> list:
+
+    result = []
+
     for i in range(len(qry)):
+        result_set = []
         check = ""
         product = qry[i]['product']
         label = qry[i]['label']
@@ -45,19 +49,23 @@ def getInformation(qry) -> list:
         timestamp = mvg_api._convert_time(qry[i]['departureTime'])
         cancelled = qry[i]['cancelled']
         sev = qry[i]['sev']
-        delay = qry[i]['delay']
+        try:
+            delay = qry[i]['delay']
+        except:
+            delay = 0
 
-        result = []
-        result.append(check)
-        result.append(product)
-        result.append(label)
-        result.append(destination)
-        result.append(timestamp)
-        result.append(cancelled)
-        result.append(sev)
-        result.append(delay)
+        result_set.append(check)
+        result_set.append(product)
+        result_set.append(label)
+        result_set.append(destination)
+        result_set.append(timestamp)
+        result_set.append(cancelled)
+        result_set.append(sev)
+        result_set.append(delay)
 
-        return result
+        result.append(result_set)
+
+    return result
 
 
 if __name__ == '__main__':
@@ -82,19 +90,23 @@ cursor = conn.cursor()
 
 while True:
     departures = mvg_api.get_departures(u_bahn_id)
+
     bus_departures = mvg_api.get_departures(bus_id)
 
     result = getInformation(departures)
 
-    addToDatabase(result[0], result[1], result[2], result[3], result[4], result[5], result[6], result[7])
+    for i in range(len(result)):
+        addToDatabase(result[i][0], result[i][1], result[i][2], result[i][3], result[i][4], result[i][5],
+                      result[i][6], result[i][7])
 
-    bus_result = getInformation(bus_departures)
+    bus_Result = getInformation(bus_departures)
 
-    addToDatabase(bus_result[0], bus_result[1], bus_result[2], bus_result[3], bus_result[4], bus_result[5],
-                  bus_result[6], bus_result[7])
+    for r in range(len(bus_Result)):
+        addToDatabase(bus_Result[r][0], bus_Result[r][1], bus_Result[r][2], bus_Result[r][3], bus_Result[r][4],
+                      bus_Result[r][5], bus_Result[r][6], bus_Result[r][7])
 
     cursor.execute(
         "COMMIT"
     )
 
-    time.sleep(10)
+    time.sleep(5)
