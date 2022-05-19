@@ -5,7 +5,7 @@ import mariadb as mariadb
 import mvg_api
 
 
-def addToDatabase(check, product, label, destination, timestamp, cancelled, sev, delay):
+def addToDatabase(check, product, label, destination, timestamp, cancelled, sev, delay, departure_id):
     if not cancelled:
         cancelled = 0
     else:
@@ -16,8 +16,7 @@ def addToDatabase(check, product, label, destination, timestamp, cancelled, sev,
     else:
         sev = 1
 
-    cursor.execute("SELECT * FROM T_DEPARTURE WHERE PRODUCT = %s AND LABEL = %s AND TIMESTAMP = %s AND DESTINATION = %s",
-                   (product, label, timestamp, destination))
+    cursor.execute("SELECT ID FROM T_DEPARTURE WHERE DEPARTURE_ID = '%s'", destination)
 
     try:
         for (id) in cursor:
@@ -27,17 +26,20 @@ def addToDatabase(check, product, label, destination, timestamp, cancelled, sev,
 
     if check == "":
         cursor.execute(
-            "INSERT INTO T_DEPARTURE (PRODUCT, LABEL, DESTINATION, TIMESTAMP, CANCELLED, SEV, DELAY) "
-            "VALUES (%s, %s, %s, %s,%s, %s, %s)", (product, label, destination, timestamp, cancelled, sev, delay)
+            "INSERT INTO T_DEPARTURE (PRODUCT, LABEL, DESTINATION, TIMESTAMP, CANCELLED, SEV, DELAY, DEPARTURE_ID) "
+            "VALUES (%s, %s, %s, %s,%s, %s, %s, %s)",
+            (product, label, destination, timestamp, cancelled, sev, delay, departure_id)
         )
     else:
         cursor.execute("UPDATE T_DEPARTURE SET CANCELLED = %s AND SEV = %s AND DELAY = %s "
-                       "WHERE PRODUCT = %s AND LABEL = %s AND DESTINATION = %s AND TIMESTAMP = %s",
-                       (cancelled, sev, delay, product, label, destination, timestamp))
+                       "WHERE DEPARTURE_ID = %s",
+                       (cancelled, sev, delay, departure_id))
 
+    cursor.execute(
+        "COMMIT"
+    )
 
 def getInformation(qry) -> list:
-
     result = []
 
     for i in range(len(qry)):
@@ -53,6 +55,7 @@ def getInformation(qry) -> list:
             delay = qry[i]['delay']
         except:
             delay = 0
+        departure_id = qry[i]['departureId']
 
         result_set.append(check)
         result_set.append(product)
@@ -62,6 +65,7 @@ def getInformation(qry) -> list:
         result_set.append(cancelled)
         result_set.append(sev)
         result_set.append(delay)
+        result_set.append(departure_id)
 
         result.append(result_set)
 
@@ -81,32 +85,33 @@ if __name__ == '__main__':
         print(f"Error connecting to MariaDB Platform: {e}")
         sys.exit(1)
 
-u_bahn_id = mvg_api.get_id_for_station("Olympia-Einkaufszentrum")
-
-bus_id = mvg_api.get_id_for_station("Dessauerstraße")
-
 # Get Cursor
 cursor = conn.cursor()
 
+stations = []
+
+with open('stations_muc.txt') as f:
+    station_with_id = f.readlines()
+
+    for i in station_with_id:
+        x = i.split(" | ")
+        stations.append(x[1].removesuffix("\n"))
+
 while True:
-    departures = mvg_api.get_departures(u_bahn_id)
 
-    bus_departures = mvg_api.get_departures(bus_id)
+    for s in stations:
 
-    result = getInformation(departures)
+        try:
+            departures = mvg_api.get_departures(s)
+        except:
+            pass
 
-    for i in range(len(result)):
-        addToDatabase(result[i][0], result[i][1], result[i][2], result[i][3], result[i][4], result[i][5],
-                      result[i][6], result[i][7])
-
-    bus_Result = getInformation(bus_departures)
-
-    for r in range(len(bus_Result)):
-        addToDatabase(bus_Result[r][0], bus_Result[r][1], bus_Result[r][2], bus_Result[r][3], bus_Result[r][4],
-                      bus_Result[r][5], bus_Result[r][6], bus_Result[r][7])
-
-    cursor.execute(
-        "COMMIT"
-    )
+        try:
+            result = getInformation(departures)
+        except:
+            pass
+        for i in range(len(result)):
+            addToDatabase(result[i][0], result[i][1], result[i][2], result[i][3], result[i][4], result[i][5],
+                          result[i][6], result[i][7], result[i][8])
 
     time.sleep(5)
