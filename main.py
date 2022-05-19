@@ -103,15 +103,12 @@ while True:
 
         try:
             departures = mvg_api.get_departures(s)
-        except:
-            pass
 
-        try:
             result = getInformation(departures)
+
+            for i in range(len(result)):
+                addToDatabase(result[i][0], result[i][1], result[i][2], result[i][3], result[i][4], result[i][5],
+                              result[i][6], result[i][7], result[i][8])
+
         except:
             pass
-        for i in range(len(result)):
-            addToDatabase(result[i][0], result[i][1], result[i][2], result[i][3], result[i][4], result[i][5],
-                          result[i][6], result[i][7], result[i][8])
-
-    time.sleep(5)
